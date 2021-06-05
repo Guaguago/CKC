@@ -3,7 +3,7 @@
     "data_path": "./data/convai2/data.pkl",
     "keyword_path": "./data/convai2/keyword.pkl",
     "pretrained_wordvec_path": "../word_vectors/glove/glove.twitter.27B.200d.txt",
-    "save_model_path": "",
+    "save_model_path": "./model/",
     "remove_self_loop": 1,
     "min_context_len": 2,
     "max_context_len": 8,
