@@ -1,0 +1,1 @@
+python train_keyword_prediction.py --config ./configs/keyword_prediction_config.json
