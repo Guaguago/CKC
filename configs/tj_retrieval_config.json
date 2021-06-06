@@ -37,7 +37,7 @@
     "fp16": 0,
     "fp16_opt_level": "O1",
     "lr_decay": 0.99,
-    "device": "0",
+    "device": 0,
     "seed": 1,
     "processes": 1
 }
