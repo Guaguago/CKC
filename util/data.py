@@ -3,6 +3,8 @@ from collections import Counter
 from itertools import chain
 from tqdm import tqdm
 import nltk
+# nltk.download('wordnet_ic')
+nltk.data.path.append("/apdcephfs/share_916081/chencxu/nltk_data/")
 from nltk.stem import WordNetLemmatizer
 from nltk.util import ngrams
 import torch
