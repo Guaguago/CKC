@@ -349,7 +349,7 @@ def main(config, progress):
                 edge_mask: numpy array of (keyword_vocab_size, keyword_vocab_size)
             }
         """
-        CN_hopk_graph_path = "./data/{0}/CN_graph_{1}hop_ge1.pkl".format(dataset, use_CN_hopk_graph)
+        CN_hopk_graph_path = "/apdcephfs/share_916081/chencxu/data/{0}/CN_graph_{1}hop_ge1.pkl".format(dataset, use_CN_hopk_graph)
         cprint("Loading graph from ", CN_hopk_graph_path)
         CN_hopk_graph_dict = load_nx_graph_hopk(CN_hopk_graph_path, word2id, keyword2id)
         CN_hopk_edge_index = torch.LongTensor(CN_hopk_graph_dict["edge_index"]).transpose(0,1).to(device) # (2, num_edges)
