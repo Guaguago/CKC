@@ -1,8 +1,8 @@
 {
   "Token": "VV1RwMuqh75jk0zjQHH5Fg",
   "business_flag": "nlpc",
-  "model_local_file_path": "/apdcephfs/private_chencxu/CKC",
+  "model_local_file_path": "/apdcephfs/private_chencxu/ckc",
   "host_num": 1,
   "host_gpu_num": 1,
-  "image_full_name": "mirrors.tencent.com/guaguago/CKC:latest"
+  "image_full_name": "mirrors.tencent.com/guaguago/ckc:latest"
 }
