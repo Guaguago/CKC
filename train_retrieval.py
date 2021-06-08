@@ -377,8 +377,9 @@ def main(config, progress):
         CN_hopk_graph_path = "./data/{0}/CN_graph_{1}hop_ge1.pkl".format(dataset, use_CN_hopk_graph)
         cprint("Loading graph from ", CN_hopk_graph_path)
         CN_hopk_graph_dict = load_nx_graph_hopk(CN_hopk_graph_path, word2id, keyword2id)
-        CN_hopk_edge_index = torch.LongTensor(CN_hopk_graph_dict["edge_index"]).transpose(0,1).to(device) # (2, num_edges)
-        CN_hopk_nodeid2wordid = torch.LongTensor(CN_hopk_graph_dict["nodeid2wordid"]).to(device) # (num_nodes, 10)
+        CN_hopk_edge_index = torch.LongTensor(CN_hopk_graph_dict["edge_index"]).transpose(0, 1).to(
+            device)  # (2, num_edges)
+        CN_hopk_nodeid2wordid = torch.LongTensor(CN_hopk_graph_dict["nodeid2wordid"]).to(device)  # (num_nodes, 10)
         node2id = CN_hopk_graph_dict["node2id"]
         id2node = {idx: w for w, idx in node2id.items()}
         keywordid2nodeid = [node2id[id2keyword[i]] if id2keyword[i] in node2id else node2id["<unk>"] for i in
@@ -526,14 +527,23 @@ def main(config, progress):
     best_model_statedict = {}
     cprint("Start training...")
     for epoch in range(epochs):
-        cprint("-"*80)
-        cprint("Epoch", epoch+1)
-        train_batches = create_batches_retrieval(train_conv_ids, train_keyword_ids, train_candidate_ids, train_candidate_keyword_ids, \
-            2*max_keyword_len, batch_size, shuffle=True, use_keywords=use_keywords, use_candidate_keywords=use_keywords, use_utterance_concepts=use_utterance_concepts, \
-                node2id=node2id, id2word=id2word, flatten_context=flatten_context, use_last_k_utterances=use_last_k_utterances)
-        valid_batches = create_batches_retrieval(valid_conv_ids, valid_keyword_ids, valid_candidate_ids, valid_candidate_keyword_ids, \
-            2*max_keyword_len, batch_size, shuffle=False, use_keywords=use_keywords, use_candidate_keywords=use_keywords, use_utterance_concepts=use_utterance_concepts, \
-                node2id=node2id, id2word=id2word, flatten_context=flatten_context, use_last_k_utterances=use_last_k_utterances)
+        cprint("-" * 80)
+        cprint("Epoch", epoch + 1)
+        # train_batches = create_batches_retrieval(train_conv_ids, train_keyword_ids, train_candidate_ids,
+        #                                          train_candidate_keyword_ids, \
+        #                                          2 * max_keyword_len, batch_size, shuffle=True,
+        #                                          use_keywords=use_keywords, use_candidate_keywords=use_keywords,
+        #                                          use_utterance_concepts=use_utterance_concepts, \
+        #                                          node2id=node2id, id2word=id2word, flatten_context=flatten_context,
+        #                                          use_last_k_utterances=use_last_k_utterances)
+        train_batches = create_batches_retrieval(valid_conv_ids, valid_keyword_ids, valid_candidate_ids,
+                                                 valid_candidate_keyword_ids, 2 * max_keyword_len, batch_size,
+                                                 shuffle=False, use_keywords=use_keywords,
+                                                 use_candidate_keywords=use_keywords,
+                                                 use_utterance_concepts=use_utterance_concepts, node2id=node2id,
+                                                 id2word=id2word, flatten_context=flatten_context,
+                                                 use_last_k_utterances=use_last_k_utterances)
+        valid_batches = train_batches
 
         if epoch == 0:
             cprint("number of optimization steps per epoch: ", len(train_batches))  # 3361
