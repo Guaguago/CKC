@@ -4,18 +4,19 @@ from itertools import chain
 from tqdm import tqdm
 import nltk
 # nltk.download('wordnet_ic')
-nltk.data.path.append("/apdcephfs/share_916081/chencxu/nltk_data/")
+# nltk.data.path.append("/apdcephfs/share_916081/chencxu/nltk_data/")
 from nltk.stem import WordNetLemmatizer
 from nltk.util import ngrams
 import torch
 from torch_geometric.data import Data
 import numpy as np
 
-
 ##########################################################################
 # from target-guided chat repo
 ##########################################################################
 _lemmatizer = WordNetLemmatizer()
+
+
 def tokenize(example, ppln):
     for fn in ppln:
         example = fn(example)
@@ -58,6 +59,7 @@ def to_basic_form(tokens):
         return word
     return _lemmatizer.lemmatize(word, pos)
 
+
 from nltk.corpus import wordnet as wn
 from nltk.corpus import wordnet_ic
 
@@ -97,6 +99,8 @@ def make_context(string, keyword2id):
         if word in keyword2id:
             context.append(word)
     return context
+
+
 ######################################################################################
 ######################################################################################
 
@@ -105,6 +109,7 @@ def pad_sentence(sent, max_sent_len, pad_token):
         return sent[:max_sent_len]
     else:
         return sent + (max_sent_len - len(sent)) * [pad_token]
+
 
 def pad_and_clip_data(convs, keywords, min_context_len, max_context_len, max_sent_len, max_keyword_len):
     """
@@ -117,38 +122,42 @@ def pad_and_clip_data(convs, keywords, min_context_len, max_context_len, max_sen
     assert len(convs) == len(keywords)
     padded_convs, padded_keywords = [], []
     pad_token = "<pad>"
-    pad_sent = max_sent_len*[pad_token]
-    pad_sent_kw = max_keyword_len*[pad_token]
-    
+    pad_sent = max_sent_len * [pad_token]
+    pad_sent_kw = max_keyword_len * [pad_token]
+
     for k, (conv, conv_kw) in tqdm(enumerate(zip(convs, keywords)), total=len(convs)):
         padded_conv, padded_conv_kw = [], []
-        
+
         # clip and pad sents and sent keywords
         for sent, sent_kw in zip(conv, conv_kw):
             padded_conv.append(pad_sentence(sent, max_sent_len, pad_token))
             padded_conv_kw.append(pad_sentence(sent_kw, max_keyword_len, pad_token))
-        
+
         # clip and pad conversations, start with min of 2 context utterrances, 
         # if response has no keyword, skip this example
-        for i in range(min_context_len+1, len(padded_conv)+1):
-            if padded_conv_kw[i-1][0] != "<pad>":
-                start_idx = max(0, (i-max_context_len))
-                padded_convs.append((padded_conv[start_idx: i-1] + (max_context_len - (i - start_idx)) * [pad_sent], [padded_conv[i-1]]))
-                padded_keywords.append((padded_conv_kw[start_idx: i-1] + (max_context_len - (i - start_idx)) * [pad_sent_kw], [padded_conv_kw[i-1]]))
-    
+        for i in range(min_context_len + 1, len(padded_conv) + 1):
+            if padded_conv_kw[i - 1][0] != "<pad>":
+                start_idx = max(0, (i - max_context_len))
+                padded_convs.append((padded_conv[start_idx: i - 1] + (max_context_len - (i - start_idx)) * [pad_sent],
+                                     [padded_conv[i - 1]]))
+                padded_keywords.append((padded_conv_kw[start_idx: i - 1] + (max_context_len - (i - start_idx)) * [
+                    pad_sent_kw], [padded_conv_kw[i - 1]]))
+
     return padded_convs, padded_keywords
+
 
 def pad_and_clip_candidate(candidates, max_sent_len):
     print("clipping and padding candidates...")
     padded_candidates = []
     pad_token = "<pad>"
-    
+
     for ex_cand in tqdm(candidates):
         padded_ex_cand = []
         for cand in ex_cand:
             padded_ex_cand.append(pad_sentence(cand, max_sent_len, pad_token))
         padded_candidates.append(padded_ex_cand)
     return padded_candidates
+
 
 def build_vocab(data, vocab_size):
     """
@@ -160,17 +169,18 @@ def build_vocab(data, vocab_size):
         for sent in (ex_context + ex_response):
             word_counter.update(sent)
     word_counter.pop("<pad>")
-    
+
     word2id = {
         "<pad>": 0,
         "<unk>": 1
     }
-    
-    for w,cnt in word_counter.most_common(vocab_size-len(word2id)):
+
+    for w, cnt in word_counter.most_common(vocab_size - len(word2id)):
         word2id[w] = len(word2id)
-    
+
     print("vocab size: ", len(word2id))
     return word2id
+
 
 def convert_convs_to_ids(convs, word2id):
     print("converting {0} conversations to token ids...".format(len(convs)))
@@ -185,6 +195,7 @@ def convert_convs_to_ids(convs, word2id):
         conv_ids.append((ex_context_id, ex_response_id))
     return conv_ids
 
+
 def convert_candidates_to_ids(candidates, word2id):
     print("converting {0} conversation candidates to token ids...".format(len(candidates)))
     candidate_ids = []
@@ -196,8 +207,10 @@ def convert_candidates_to_ids(candidates, word2id):
     return candidate_ids
 
 
-def create_batches_keyword_prediction(convs, keywords, max_keyword_context_len, batch_size, shuffle=True, remove_self_loop=False, \
-    keywordid2wordid=None, keyword_mask_matrix=None, use_last_k_utterances=-1, use_utterance_concepts=False, keyword2id=None, node2id=None, id2word=None):
+def create_batches_keyword_prediction(convs, keywords, max_keyword_context_len, batch_size, shuffle=True,
+                                      remove_self_loop=False, \
+                                      keywordid2wordid=None, keyword_mask_matrix=None, use_last_k_utterances=-1,
+                                      use_utterance_concepts=False, keyword2id=None, node2id=None, id2word=None):
     """
         convs: N x [((context_len, max_sent_len), (1, max_sent_len))]
         keywords: N x [((context_len, max_keyword_len), (1, max_keyword_len))]
@@ -207,7 +220,7 @@ def create_batches_keyword_prediction(convs, keywords, max_keyword_context_len, 
         conv_keyword_pairs = list(zip(convs, keywords))
         random.shuffle(conv_keyword_pairs)
         convs, keywords = zip(*conv_keyword_pairs)
-    
+
     max_sent_len = len(convs[0][0][0])
     # batch_indices = list(range(0, len(convs), batch_size)) + [len(convs)]
     data = []
@@ -220,14 +233,14 @@ def create_batches_keyword_prediction(convs, keywords, max_keyword_context_len, 
 
     for conv, conv_kw in tqdm(zip(convs, keywords)):
         response_idx = 0
-        for i in range(len(conv_kw[0])-1, -1, -1):
+        for i in range(len(conv_kw[0]) - 1, -1, -1):
             if conv_kw[0][i][0] != 0:
-                response_idx = i+1
+                response_idx = i + 1
                 break
-                
+
         # contextual keywords of last 2 utterances
         context_kw = []
-        for w in chain(reversed(conv_kw[0][response_idx-2]), reversed(conv_kw[0][response_idx-1])):
+        for w in chain(reversed(conv_kw[0][response_idx - 2]), reversed(conv_kw[0][response_idx - 1])):
             if w != 0:
                 context_kw.append(w)
         context_kw = pad_sentence(context_kw, max_keyword_context_len, 0)
@@ -241,8 +254,8 @@ def create_batches_keyword_prediction(convs, keywords, max_keyword_context_len, 
                         response_kw.append(w)
                 else:
                     response_kw.append(w)
-        response_kw = pad_sentence(response_kw, max_keyword_context_len//2, 0)
-        
+        response_kw = pad_sentence(response_kw, max_keyword_context_len // 2, 0)
+
         if keyword_mask_matrix is not None:
             # keep only those neighboring keywords in the response_kw
             filtered_response_kw = []
@@ -255,15 +268,15 @@ def create_batches_keyword_prediction(convs, keywords, max_keyword_context_len, 
                     # if e_kw is a neighbor of s_kw, keep it
                     if keyword_mask_matrix[s_kw, e_kw] == 1 and e_kw not in filtered_response_kw:
                         filtered_response_kw.append(e_kw)
-            response_kw = pad_sentence(filtered_response_kw, max_keyword_context_len//2, 0)
+            response_kw = pad_sentence(filtered_response_kw, max_keyword_context_len // 2, 0)
 
         if context_kw[0] == 0 or response_kw[0] == 0:
             continue
-        
+
         total_pairs += len([1 for w in context_kw if w != 0]) * len([1 for w in response_kw if w != 0])
 
-        batch_X_keywords.append(context_kw) # input the contextual keywords in one sentence
-        batch_y.append(response_kw) # output is the response keywords in one sentence
+        batch_X_keywords.append(context_kw)  # input the contextual keywords in one sentence
+        batch_y.append(response_kw)  # output is the response keywords in one sentence
         if use_last_k_utterances <= 0:
             batch_X_utterances.append(conv[0])
         else:
@@ -274,7 +287,8 @@ def create_batches_keyword_prediction(convs, keywords, max_keyword_context_len, 
                     valid_utterances.append(utter)
             valid_utterances = valid_utterances[-use_last_k_utterances:]
             # pad the rest utterances
-            valid_utterances = valid_utterances + [[0]*len(valid_utterances[0])] * (use_last_k_utterances - len(valid_utterances))
+            valid_utterances = valid_utterances + [[0] * len(valid_utterances[0])] * (
+                    use_last_k_utterances - len(valid_utterances))
             batch_X_utterances.append(valid_utterances)
 
         if use_utterance_concepts:
@@ -297,7 +311,6 @@ def create_batches_keyword_prediction(convs, keywords, max_keyword_context_len, 
             utterance_concepts = pad_sentence(utterance_concepts, max_sent_len, node2id["<pad>"])
             batch_X_concepts.append(utterance_concepts)
 
-
         if len(batch_y) == batch_size:
             data.append({
                 "batch_X_keywords": batch_X_keywords,
@@ -309,7 +322,7 @@ def create_batches_keyword_prediction(convs, keywords, max_keyword_context_len, 
             batch_X_utterances = []
             batch_X_concepts = []
             batch_y = []
-    
+
     # last batch
     if len(batch_y) > 0:
         data.append({
@@ -318,7 +331,7 @@ def create_batches_keyword_prediction(convs, keywords, max_keyword_context_len, 
             "batch_X_concepts": batch_X_concepts,
             "batch_y": batch_y
         })
-    
+
     print("total number of turns: ", len(convs))
     print("total number of keyword transitions: ", total_pairs)
     print("total number of concepts: ", total_concepts)
@@ -335,9 +348,10 @@ def extract_keywords_from_candidates(candidates, keyword2id):
         keywords.append(conv_cand_kws)
     return keywords
 
+
 def extract_concepts(utter, id2word, node2id, max_sent_len):
     if utter[0] == 0:
-        return [node2id["<pad>"]]*max_sent_len
+        return [node2id["<pad>"]] * max_sent_len
     utter_concepts = []
     utter = [id2word[w] for w in utter if w != 0]
     all_utter_ngrams = []
@@ -352,8 +366,20 @@ def extract_concepts(utter, id2word, node2id, max_sent_len):
     return utter_concepts
 
 
-def create_batches_retrieval(convs, keywords, candidates, candidate_keywords, max_keyword_context_len, batch_size, shuffle=True, use_keywords=False, \
-    use_candidate_keywords=False, use_utterance_concepts=False, node2id=None, id2word=None, flatten_context=False, use_last_k_utterances=-1):
+def extract_keywords(utter, id2word, keyword2id, max_sent_len):
+    if utter[0] == 0:
+        return [keyword2id["<pad>"]] * max_sent_len
+    utter = [id2word[w] for w in utter if w != 0]
+    simple_tokens = kw_tokenize(" ".join(utter))
+    utter_keywords = [keyword2id[w] for w in simple_tokens if w in keyword2id]
+    utter_keywords = pad_sentence(utter_keywords, max_sent_len, keyword2id["<pad>"])
+    return utter_keywords
+
+
+def create_batches_retrieval(convs, keywords, candidates, candidate_keywords, max_keyword_context_len, batch_size,
+                             shuffle=True, use_keywords=False, use_candidate_keywords=False,
+                             use_utterance_concepts=False, node2id=None, keyword2id=None, id2word=None,
+                             flatten_context=False, use_last_k_utterances=-1):
     """
         convs: (N, context_len, max_sent_len)
         keywords: (N, context_len, max_keyword_len)
@@ -369,7 +395,7 @@ def create_batches_retrieval(convs, keywords, candidates, candidate_keywords, ma
             conv_keyword_candidate_tuples = list(zip(convs, keywords, candidates, candidate_keywords))
             random.shuffle(conv_keyword_candidate_tuples)
             convs, keywords, candidates, candidate_keywords = zip(*conv_keyword_candidate_tuples)
-    
+
     max_sent_len = len(convs[0][0][0])
     data = []
     batch_context = []
@@ -389,15 +415,15 @@ def create_batches_retrieval(convs, keywords, candidates, candidate_keywords, ma
         conv_cand_concepts = []
 
         response_idx = 0
-        for i in range(len(conv_kw[0])-1, -1, -1):
+        for i in range(len(conv_kw[0]) - 1, -1, -1):
             if conv_kw[0][i][0] != 0:
-                response_idx = i+1
+                response_idx = i + 1
                 break
-        
+
         # contextual keywords of last 2 utterances
         if use_keywords:
             context_kw = []
-            for w in conv_kw[0][response_idx-2] + conv_kw[0][response_idx-1]:
+            for w in conv_kw[0][response_idx - 2] + conv_kw[0][response_idx - 1]:
                 if w != 0:
                     context_kw.append(w)
             context_kw = pad_sentence(context_kw, max_keyword_context_len, 0)
@@ -406,10 +432,10 @@ def create_batches_retrieval(convs, keywords, candidates, candidate_keywords, ma
         if use_candidate_keywords:
             conv_cand_kw = candidate_keywords[i]
             batch_candidates_kw.append(conv_cand_kw)
-        
+
         batch_context.append(conv[0])
         batch_candidates.append(conv_cand)
-        
+
         if use_utterance_concepts:
             # batch_X_utterances[-1]: (max_context_len, max_sent_len)
             # extract all concepts from batch_X_utterances[-1]
@@ -429,16 +455,17 @@ def create_batches_retrieval(convs, keywords, candidates, candidate_keywords, ma
             flattened_context = []
             for utter in batch_context[-1]:
                 flattened_context.extend([w for w in utter if w != 0])
-            flattened_context = pad_sentence(flattened_context, max_sent_len*len(batch_context[-1]), 0)
+            flattened_context = pad_sentence(flattened_context, max_sent_len * len(batch_context[-1]), 0)
             batch_context[-1] = [flattened_context]
 
             if use_utterance_concepts:
                 flattened_context_concepts = []
                 for utter in batch_context_concepts[-1]:
                     flattened_context_concepts.extend([w for w in utter if w != 0])
-                flattened_context_concepts = pad_sentence(flattened_context_concepts, max_sent_len*len(batch_context_concepts[-1]), 0)
+                flattened_context_concepts = pad_sentence(flattened_context_concepts,
+                                                          max_sent_len * len(batch_context_concepts[-1]), 0)
                 batch_context_concepts[-1] = [flattened_context_concepts]
-        
+
         if use_last_k_utterances > 0:
             # get last k utterances from conv[0]
             valid_utterances = []
@@ -447,7 +474,8 @@ def create_batches_retrieval(convs, keywords, candidates, candidate_keywords, ma
                     valid_utterances.append(utter)
             valid_utterances = valid_utterances[-use_last_k_utterances:]
             # pad the rest utterances
-            valid_utterances = valid_utterances + [[0]*len(valid_utterances[0])] * (use_last_k_utterances - len(valid_utterances))
+            valid_utterances = valid_utterances + [[0] * len(valid_utterances[0])] * (
+                    use_last_k_utterances - len(valid_utterances))
             batch_context_for_keywords_prediction.append(valid_utterances)
 
             if use_utterance_concepts:
@@ -455,16 +483,17 @@ def create_batches_retrieval(convs, keywords, candidates, candidate_keywords, ma
                 # extract all concepts from batch_X_utterances[-1]
                 conv_concepts_for_keywords_prediction = []
                 for utter in batch_context_for_keywords_prediction[-1]:
-                    utter_concepts = extract_concepts(utter, id2word, node2id, max_sent_len) # padded concepts
+                    utter_concepts = extract_concepts(utter, id2word, node2id, max_sent_len)  # padded concepts
                     conv_concepts_for_keywords_prediction.extend([w for w in utter_concepts if w != node2id["<pad>"]])
-                conv_concepts_for_keywords_prediction = pad_sentence(conv_concepts_for_keywords_prediction, max_sent_len, node2id["<pad>"])
+                conv_concepts_for_keywords_prediction = pad_sentence(conv_concepts_for_keywords_prediction,
+                                                                     max_sent_len, node2id["<pad>"])
                 batch_context_concepts_for_keywords_prediction.append(conv_concepts_for_keywords_prediction)
 
         batch_data = {
-                "batch_context": batch_context,
-                "batch_candidates": batch_candidates
-            }
-        
+            "batch_context": batch_context,
+            "batch_candidates": batch_candidates
+        }
+
         if use_keywords:
             batch_data["batch_context_kw"] = batch_context_kw
         if use_candidate_keywords:
@@ -474,8 +503,9 @@ def create_batches_retrieval(convs, keywords, candidates, candidate_keywords, ma
             batch_data["batch_candidates_concepts"] = batch_candidates_concepts
         if use_last_k_utterances > 0:
             batch_data["batch_context_for_keywords_prediction"] = batch_context_for_keywords_prediction
-            batch_data["batch_context_concepts_for_keywords_prediction"] = batch_context_concepts_for_keywords_prediction
-        
+            batch_data[
+                "batch_context_concepts_for_keywords_prediction"] = batch_context_concepts_for_keywords_prediction
+
         if len(batch_context) == batch_size:
             data.append(batch_data)
             batch_context = []
@@ -486,7 +516,7 @@ def create_batches_retrieval(convs, keywords, candidates, candidate_keywords, ma
             batch_candidates_concepts = []
             batch_context_for_keywords_prediction = []
             batch_context_concepts_for_keywords_prediction = []
-        
+
         try:
             assert conv[1][0] == conv_cand[0]
         except AssertionError:
@@ -495,12 +525,12 @@ def create_batches_retrieval(convs, keywords, candidates, candidate_keywords, ma
             print(conv[1][0])
             print(conv_cand)
             exit()
-    
+
     if len(batch_context) > 0:
         batch_data = {
-                "batch_context": batch_context,
-                "batch_candidates": batch_candidates
-            }
+            "batch_context": batch_context,
+            "batch_candidates": batch_candidates
+        }
         if use_keywords:
             batch_data["batch_context_kw"] = batch_context_kw
         if use_candidate_keywords:
@@ -510,9 +540,10 @@ def create_batches_retrieval(convs, keywords, candidates, candidate_keywords, ma
             batch_data["batch_candidates_concepts"] = batch_candidates_concepts
         if use_last_k_utterances > 0:
             batch_data["batch_context_for_keywords_prediction"] = batch_context_for_keywords_prediction
-            batch_data["batch_context_concepts_for_keywords_prediction"] = batch_context_concepts_for_keywords_prediction
+            batch_data[
+                "batch_context_concepts_for_keywords_prediction"] = batch_context_concepts_for_keywords_prediction
         data.append(batch_data)
-    
+
     return data
 
 
@@ -527,25 +558,27 @@ def process_history(history, word2id, keyword2id, max_seq_len=30, max_context_le
             context_keywords = make_context(history[-1], keyword2id)
         else:
             context_keywords = make_context(history[-2] + history[-1], keyword2id)
-        
+
         # clip and pad context_keywords
-        context_keywords = pad_sentence(context_keywords, 2*max_keyword_len, "<pad>")
-        
+        context_keywords = pad_sentence(context_keywords, 2 * max_keyword_len, "<pad>")
+
         # convert to ids
-        context_keywords = [keyword2id[w] if w in keyword2id else keyword2id["<unk>"] for w in context_keywords] # (2*max_keyword_len, )
+        context_keywords = [keyword2id[w] if w in keyword2id else keyword2id["<unk>"] for w in
+                            context_keywords]  # (2*max_keyword_len, )
 
     # tokenize
     context_utterances = []
     for sent in history:
         tokens = simp_tokenize(sent)
         tokens = pad_sentence(tokens, max_seq_len, "<pad>")
-        
+
         # convert to ids
         tokens = [word2id[w] if w in word2id else word2id["<unk>"] for w in tokens]
         context_utterances.append(tokens)
-    
+
     # pad conversations
-    context_utterances += [[word2id["<pad>"]] * max_seq_len] * (max_context_len - len(context_utterances)) # (max_context_len, max_seq_len)
+    context_utterances += [[word2id["<pad>"]] * max_seq_len] * (
+            max_context_len - len(context_utterances))  # (max_context_len, max_seq_len)
 
     return context_utterances, context_keywords
 
