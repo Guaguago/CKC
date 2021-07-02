@@ -1,5 +1,5 @@
 import io
-import pickle
+import pickle5 as pickle
 from tqdm import tqdm
 import torch
 import networkx as nx
