@@ -1,9 +1,9 @@
 {
     "test_mode": 1,
-    "data_path": "./data/convai2/data.pkl",
-    "keyword_path": "./data/convai2/keyword.pkl",
-    "pretrained_wordvec_path": "../word_vectors/glove/glove.twitter.27B.200d.txt",
-    "save_model_path": "./model/",
+    "data_path": "/apdcephfs/share_916081/chencxu/data/convai2/data.pkl",
+    "keyword_path": "/apdcephfs/share_916081/chencxu/data/convai2/keyword.pkl",
+    "pretrained_wordvec_path": "/apdcephfs/share_916081/chencxu/data/word_vectors/glove/glove.twitter.27B.200d.txt",
+    "save_model_path": "/apdcephfs/share_916081/chencxu/ckc/model/",
     "remove_self_loop": 1,
     "min_context_len": 2,
     "max_context_len": 8,
