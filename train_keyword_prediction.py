@@ -49,7 +49,7 @@ def compute_CE(logits, target, batch_vocab_mask=None):
     if batch_vocab_mask is not None:
         logits = (1-batch_vocab_mask)*(-5e4) + batch_vocab_mask*logits # (batch, vocab_size), masked logits
         target_mask = target_mask * torch.gather(batch_vocab_mask, dim=1, index=target) # (batch, seq_len), masked target mask
-    
+
     logits = F.log_softmax(logits, dim=-1)
     loss = -1 * (torch.gather(logits, dim=1, index=target) * target_mask).sum() # negative log-likelihood loss
     loss = loss/target_mask.sum()
@@ -65,11 +65,11 @@ def compute_metrics(logits, target, batch_vocab_mask=None):
     # logits = torch.rand_like(logits) # random baseline
     if batch_vocab_mask is not None:
         logits = (1-batch_vocab_mask)*(-5e4) + batch_vocab_mask*logits # (batch, vocab_size), masked logits
-    
+
     # recall@k
     sorted_indices = logits.sort(descending=True)[1]
     targets = target.tolist()
-    
+
     precisions = []
     recalls = []
     ks = [1, 3, 5]
@@ -86,7 +86,7 @@ def compute_metrics(logits, target, batch_vocab_mask=None):
             recall_k.append(num_hit/len(tgts))
         precisions.append(np.mean(precision_k))
         recalls.append(np.mean(recall_k))
-    
+
     return precisions, recalls
 
 
@@ -102,7 +102,7 @@ def run_epoch(data_iter, model, optimizer, epoch, training, device, fp16=False, 
         batch_X_utterances = None
         if len(batch["batch_X_utterances"]) > 0 and model.utterance_encoder_name != "":
             batch_X_utterances = torch.LongTensor(batch["batch_X_utterances"]).to(device) # (batch_size, max_context_len, max_seq_len)
-        
+
         batch_X_concepts = None
         if use_utterance_concepts:
             batch_X_concepts = torch.LongTensor(batch["batch_X_concepts"]).to(device) # (batch_size, max_seq_len)
@@ -113,12 +113,12 @@ def run_epoch(data_iter, model, optimizer, epoch, training, device, fp16=False, 
                 cprint("batch_X_utterances shape: ", batch_X_utterances.shape)
             if batch_X_concepts is not None:
                 cprint("batch_X_concepts shape: ", batch_X_concepts.shape)
-        
+
         if training:
             optimizer.zero_grad()
-        
+
         logits = model(CN_hopk_edge_index, batch_X_keywords, x_utter=batch_X_utterances, x_concept=batch_X_concepts) # logits: (batch_size, keyword_vocab_size)
-        
+
         if i==0:
             cprint("logits shape: ", logits.shape)
 
@@ -141,12 +141,12 @@ def run_epoch(data_iter, model, optimizer, epoch, training, device, fp16=False, 
                     scaled_loss.backward()
             else:
                 loss.backward()
-            
+
             if fp16:
                 torch.nn.utils.clip_grad_norm_(amp.master_params(optimizer), 1)
             else:
                 torch.nn.utils.clip_grad_norm_(model.parameters(), 1)
-            
+
             optimizer.step()
 
             if step_scheduler is not None:
@@ -190,7 +190,7 @@ def main(config, progress):
     max_vocab_size = config["max_vocab_size"]
     max_keyword_vocab_size = config["max_keyword_vocab_size"]
     remove_self_loop = bool(config["remove_self_loop"])
-    
+
     # model hyper-params
     config_id = config["config_id"]
     model = config["model"]
@@ -200,7 +200,7 @@ def main(config, progress):
     use_last_k_utterances = config["use_last_k_utterances"]
     use_CN_hopk_graph = config["use_CN_hopk_graph"]
     use_utterance_concepts = bool(config["use_utterance_concepts"])
-    combine_node_emb = config["combine_node_emb"] # replace, mean, max, concat, 
+    combine_node_emb = config["combine_node_emb"] # replace, mean, max, concat,
     concept_encoder = config["concept_encoder"]
     embed_size = config["embed_size"]
     use_pretrained_word_embedding = bool(config["use_pretrained_word_embedding"])
@@ -210,7 +210,7 @@ def main(config, progress):
     bidirectional = bool(config["bidirectional"])
     n_heads = config["n_heads"]
     dropout = config["dropout"]
-    
+
     # training hyper-params
     batch_size = config["batch_size"]
     epochs = config["epochs"]
@@ -235,7 +235,7 @@ def main(config, progress):
     cprint("Loading conversation data...")
     train, valid, test = load_pickle(data_path)
     train_keyword, valid_keyword, test_keyword = load_pickle(keyword_path)
-    
+
     if test_mode:
         cprint("Testing model...")
         train = train + valid
@@ -275,7 +275,7 @@ def main(config, progress):
     keyword_vocab_size = len(keyword2id)
     cprint("vocab size: ", vocab_size)
     cprint("keyword vocab size: ", keyword_vocab_size)
-    
+
     CN_hopk_edge_index, CN_hopk_nodeid2wordid, keywordid2nodeid, node2id = None, None, None, None
     keyword_mask_matrix = None
     if use_CN_hopk_graph > 0:
@@ -289,7 +289,7 @@ def main(config, progress):
                 nodeid2wordid: 2D list (num_nodes, 10)
             }
         """
-        CN_hopk_graph_path = "./data/{0}/CN_graph_{1}hop_ge1.pkl".format(dataset, use_CN_hopk_graph)
+        CN_hopk_graph_path = "/apdcephfs/share_916081/chencxu/data/{0}/CN_graph_{1}hop_ge1.pkl".format(dataset, use_CN_hopk_graph)
         cprint("Loading graph from ", CN_hopk_graph_path)
         CN_hopk_graph_dict = load_nx_graph_hopk(CN_hopk_graph_path, word2id, keyword2id)
         CN_hopk_edge_index = torch.LongTensor(CN_hopk_graph_dict["edge_index"]).transpose(0,1).to(device) # (2, num_edges)
@@ -306,7 +306,7 @@ def main(config, progress):
         cprint("average number of neighbors: ", keyword_mask_matrix.sum(dim=1).mean())
         cprint("sample keyword mask matrix: ", keyword_mask_matrix[:8,:8])
         keyword_mask_matrix = keyword_mask_matrix.to(device)
-        
+
         cprint("edge index shape: ", CN_hopk_edge_index.shape)
         cprint("edge index[:,:8]", CN_hopk_edge_index[:,:8])
         cprint("nodeid2wordid shape: ", CN_hopk_nodeid2wordid.shape)
@@ -359,7 +359,7 @@ def main(config, progress):
     cprint("Building model...")
     model = globals()[config["model"]](**model_kwargs)
     # cprint(model.edge_weight.shape, model.edge_weight.requires_grad)
-    
+
     pretrained_word_embedding = None
     if use_pretrained_word_embedding:
         # load pretrained word embedding
@@ -386,13 +386,13 @@ def main(config, progress):
                 pretrained_word_embedding[i] = np.array(word_vectors[w])
             else:
                 pretrained_word_embedding[i] = np.random.randn(embed_size)/9
-            
+
         pretrained_word_embedding[0] = 0 # 0 for PAD embedding
         pretrained_word_embedding = torch.from_numpy(pretrained_word_embedding).float()
         cprint("word embedding size: ", pretrained_word_embedding.shape)
-        
+
         model.init_embedding(pretrained_word_embedding, fix_word_embedding)
-    
+
     cprint(model)
     cprint("number of parameters: ", count_parameters(model))
     model.to(device)
@@ -439,25 +439,25 @@ def main(config, progress):
                 cprint(k, v[0], [id2node[w] for w in v[0]])
             if k == "batch_y":
                 cprint(k, v[0], [id2keyword[w] for w in v[0]])
-        
+
         model.train()
         train_loss, (train_precision, train_recall) = run_epoch(train_batches, model, optimizer, epoch=epoch, training=True, device=device, \
             fp16=fp16, amp=amp, step_scheduler=scheduler, keyword_mask_matrix=keyword_mask_matrix, keywordid2wordid=keywordid2wordid, \
                 CN_hopk_edge_index=CN_hopk_edge_index, use_utterance_concepts=use_utterance_concepts)
         cprint("Config id: {}, Epoch {}: train precision: {}, train recall: {}"
             .format(config_id, epoch+1, train_precision, train_recall))
-        
+
         model.eval()
         valid_loss, (valid_precision, valid_recall) = run_epoch(valid_batches, model, optimizer, epoch=epoch, training=False, device=device, \
             keyword_mask_matrix=keyword_mask_matrix, keywordid2wordid=keywordid2wordid, \
                             CN_hopk_edge_index=CN_hopk_edge_index, use_utterance_concepts=use_utterance_concepts)
-        
+
         # scheduler.step()
         cprint("Config id: {}, Epoch {}: train loss: {}, valid loss: {}, valid precision: {}, valid recall: {}"
             .format(config_id, epoch+1, train_loss, valid_loss, valid_precision, valid_recall))
         if scheduler is not None:
             cprint("Current learning rate: ", scheduler.get_last_lr())
-        
+
         epoch_train_losses.append(train_loss)
         epoch_valid_losses.append(valid_loss)
         epoch_valid_precisions.append(valid_precision)
@@ -489,7 +489,7 @@ def main(config, progress):
         best_model_statedict["word2id"] = keyword2id
         best_model_statedict["model_kwargs"] = model_kwargs
         torch.save(best_model_statedict, save_model_path)
-    
+
     return metrics
 
 
@@ -515,20 +515,20 @@ def merge_metrics(metrics):
                     avg_metrics[k] = np.array(metric[k])
             elif k == "score":
                 avg_metrics[k] += metric[k]
-                
+
             if k == "config" or k == "epoch":
                 continue
             if k in std_metrics:
                 std_metrics[k].append(metric[k])
             else:
                 std_metrics[k] = [metric[k]]
-    
+
     for k, v in avg_metrics.items():
         if k == "score":
             avg_metrics[k] = v/num_metrics
         else:
             avg_metrics[k] = (v/num_metrics).tolist()
-    
+
     for k,v in std_metrics.items():
         std_metrics[k] = np.array(v).std(axis=0).tolist()
 
@@ -544,7 +544,7 @@ if __name__ == "__main__":
     cprint("Experiment note: ", args.note)
     with open(args.config) as configfile:
         config = json.load(configfile) # config is now a python dict
-    
+
     # pass experiment config to main
     parameters_to_search = OrderedDict() # keep keys in order
     other_parameters = {}
@@ -575,11 +575,11 @@ if __name__ == "__main__":
             specific_config = {}
             for idx, k in enumerate(parameters_to_search.keys()):
                 specific_config[k] = r[idx]
-            
+
             # merge with other parameters
             merged_config = {**other_parameters, **specific_config}
             all_configs.append(merged_config)
-        
+
         # cprint all configs
         for config in all_configs:
             config_id = time.perf_counter()
