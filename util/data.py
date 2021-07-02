@@ -4,7 +4,7 @@ from itertools import chain
 from tqdm import tqdm
 import nltk
 # nltk.download('wordnet_ic')
-# nltk.data.path.append("/apdcephfs/share_916081/chencxu/nltk_data/")
+nltk.data.path.append('/apdcephfs/share_916081/chencxu/nltk_data')
 from nltk.stem import WordNetLemmatizer
 from nltk.util import ngrams
 import torch
@@ -415,9 +415,9 @@ def create_batches_retrieval(convs, keywords, candidates, candidate_keywords, ma
         conv_cand_concepts = []
 
         response_idx = 0
-        for i in range(len(conv_kw[0]) - 1, -1, -1):
-            if conv_kw[0][i][0] != 0:
-                response_idx = i + 1
+        for j in range(len(conv_kw[0]) - 1, -1, -1):
+            if conv_kw[0][j][0] != 0:
+                response_idx = j + 1
                 break
 
         # contextual keywords of last 2 utterances
@@ -440,7 +440,7 @@ def create_batches_retrieval(convs, keywords, candidates, candidate_keywords, ma
             # batch_X_utterances[-1]: (max_context_len, max_sent_len)
             # extract all concepts from batch_X_utterances[-1]
             for utter in batch_context[-1]:
-                utter_concepts = extract_concepts(utter, id2word, node2id, max_sent_len) # padded concepts
+                utter_concepts = extract_concepts(utter, id2word, node2id, max_sent_len)  # padded concepts
                 conv_concepts.append(utter_concepts)
             batch_context_concepts.append(conv_concepts)
 
