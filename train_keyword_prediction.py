@@ -167,7 +167,7 @@ def run_epoch(data_iter, model, optimizer, epoch, training, device, fp16=False, 
 
 def main(config, progress):
     # save config
-    with open("./log/configs.json", "a") as f:
+    with open("/apdcephfs/share_916081/chencxu/ckc/log/configs.json", "a") as f:
         json.dump(config, f)
         f.write("\n")
     cprint("*"*80)
