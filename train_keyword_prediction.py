@@ -4,7 +4,7 @@ import json
 import logging
 import multiprocessing as mp
 import os
-import pickle5
+import pickle5 as pickle
 import random
 import re
 import string
